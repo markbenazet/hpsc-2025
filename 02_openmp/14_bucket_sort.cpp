@@ -30,11 +30,12 @@ int main() {
   // }
   // printf("\n");
 
-#pragma omp parallel for
+#pragma omp parallel for 
 for (int i = 0; i < range; i++) {
     int j = offset[i];
-    for (; bucket[i] > 0; bucket[i]--) {
-        key[j++] = i;
+    int k = bucket[i];
+    for (int count = j; count < j + k; count++) {
+        key[count] = i;
     }
 }
 

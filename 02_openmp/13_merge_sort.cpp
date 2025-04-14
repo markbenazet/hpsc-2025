@@ -54,12 +54,12 @@ int main() {
   // }
   // printf("\n");
 
-  #pragma omp parallel
-  {
-      #pragma omp single
-      num_threads = omp_get_thread_num();
-  }
-  std::cout << "Number of threads: " << num_threads << std::endl;
+  // #pragma omp parallel
+  // {
+  //     #pragma omp single
+  //     num_threads = omp_get_thread_num();
+  // }
+  // std::cout << "Number of threads: " << num_threads << std::endl;
 
   auto start = std::chrono::high_resolution_clock::now();
   #pragma omp parallel
