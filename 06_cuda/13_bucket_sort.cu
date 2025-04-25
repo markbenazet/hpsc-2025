@@ -3,66 +3,39 @@
 #include <vector>
 #include <cuda_runtime.h>
 
-__global__ void countElements(int *key, int n, int range, int *blockCounts) {
-  extern __shared__ int localBucket[];
-  
+__global__ void countElements(int *input, int *counts, int n, int range) {
   for (int i = threadIdx.x; i < range; i += blockDim.x) {
-      localBucket[i] = 0;
+      counts[i] = 0;
   }
   __syncthreads();
   
   for (int i = threadIdx.x + blockIdx.x * blockDim.x; i < n; i += blockDim.x * gridDim.x) {
-      atomicAdd(&localBucket[key[i]], 1);
-  }
-  __syncthreads();
-  
-  for (int i = threadIdx.x; i < range; i += blockDim.x) {
-      blockCounts[blockIdx.x * range + i] = localBucket[i];
+      atomicAdd(&counts[input[i]], 1);
   }
 }
 
-__global__ void sortElements(int *key, int n, int range, int *blockCounts, int *output) {
-  extern __shared__ int sharedMem[];
-  int* localBucket = sharedMem;
-  int* globalOffset = &sharedMem[range];
+__global__ void sortElements(int *input, int *output, int *counts, int n, int range) {
+  __shared__ int prefixSum[5];
   
   for (int i = threadIdx.x; i < range; i += blockDim.x) {
-      localBucket[i] = 0;
-      globalOffset[i] = 0;
-  }
-  __syncthreads();
-  
-  for (int i = threadIdx.x + blockIdx.x * blockDim.x; i < n; i += blockDim.x * gridDim.x) {
-      atomicAdd(&localBucket[key[i]], 1);
-  }
-  __syncthreads();
-  
-  if (threadIdx.x == 0) {
-      for (int b = 0; b < range; b++) {
-          int globalPos = 0;
-          for (int blk = 0; blk < blockIdx.x; blk++) {
-              globalPos += blockCounts[blk * range + b];
-          }
-          globalOffset[b] = globalPos;
-      }
+      prefixSum[i] = counts[i];
   }
   __syncthreads();
   
   if (threadIdx.x == 0) {
       int sum = 0;
-      for (int b = 0; b < range; b++) {
-          int temp = localBucket[b];
-          localBucket[b] = sum;
-          sum += temp;
+      for (int i = 0; i < range; i++) {
+          int count = prefixSum[i];
+          prefixSum[i] = sum;
+          sum += count;
       }
   }
   __syncthreads();
   
   for (int i = threadIdx.x + blockIdx.x * blockDim.x; i < n; i += blockDim.x * gridDim.x) {
-      int val = key[i];
-      int pos = globalOffset[val] + localBucket[val];
-      atomicAdd(&localBucket[val], 1);
-      output[pos] = val;
+      int value = input[i];
+      int pos = atomicAdd(&prefixSum[value], 1);
+      output[pos] = value;
   }
 }
 
@@ -79,29 +52,31 @@ int main() {
     printf("%d ",key[i]);
   }
   
-  int *d_key, *d_output, *d_blockCounts;
-  cudaMalloc(&d_key, n * sizeof(int));
+  int *d_input, *d_output, *d_counts;
+  cudaMalloc(&d_input, n * sizeof(int));
   cudaMalloc(&d_output, n * sizeof(int));
-  cudaMalloc(&d_blockCounts, numBlocks * range * sizeof(int));
+  cudaMalloc(&d_counts, range * sizeof(int));
   
-  cudaMemcpy(d_key, key.data(), n * sizeof(int), cudaMemcpyHostToDevice);
+  cudaMemcpy(d_input, input.data(), n * sizeof(int), cudaMemcpyHostToDevice);
   
-  countElements<<<numBlocks, 256, range * sizeof(int)>>>(d_key, n, range, d_blockCounts);
+  countElements<<<numBlocks, 256>>>(d_input, d_counts, n, range);
   
-  sortElements<<<numBlocks, 256, 2 * range * sizeof(int)>>>(d_key, n, range, d_blockCounts, d_output);
+  sortElements<<<numBlocks, 256>>>(d_input, d_output, d_counts, n, range);
   
   cudaDeviceSynchronize();
   
-  cudaMemcpy(key.data(), d_output, n * sizeof(int), cudaMemcpyDeviceToHost);
+  std::vector<int> output(n);
+  cudaMemcpy(output.data(), d_output, n * sizeof(int), cudaMemcpyDeviceToHost);
   
-  cudaFree(d_key);
-  cudaFree(d_output);
-  cudaFree(d_blockCounts);
-
-  printf("\n Sorted array: ");
-  
-  for (int i=0; i<n; i++) {
-    printf("%d ",key[i]);
+  printf("Sorted array: ");
+  for (int i = 0; i < n; i++) {
+      printf("%d ", output[i]);
   }
   printf("\n");
+  
+  cudaFree(d_input);
+  cudaFree(d_output);
+  cudaFree(d_counts);
+  
+  return 0;
 }
