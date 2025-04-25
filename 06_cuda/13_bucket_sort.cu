@@ -69,6 +69,7 @@ __global__ void sortElements(int *key, int n, int range, int *blockCounts, int *
 int main() {
   int n = 50;
   int range = 5;
+  int numBlocks = (n + 255) / 256;
   std::vector<int> key(n);
   for (int i=0; i<n; i++) {
     key[i] = rand() % range;
