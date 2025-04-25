@@ -57,7 +57,7 @@ int main() {
   cudaMalloc(&d_output, n * sizeof(int));
   cudaMalloc(&d_counts, range * sizeof(int));
   
-  cudaMemcpy(d_input, input.data(), n * sizeof(int), cudaMemcpyHostToDevice);
+  cudaMemcpy(d_input, key.data(), n * sizeof(int), cudaMemcpyHostToDevice);
   
   countElements<<<numBlocks, 256>>>(d_input, d_counts, n, range);
   
