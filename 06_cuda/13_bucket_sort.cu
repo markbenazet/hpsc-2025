@@ -72,7 +72,7 @@ int main() {
   int numBlocks = (n + 255) / 256;
   std::vector<int> key(n);
 
-  print("Unsorted array: ");
+  printf("Unsorted array: ");
   srand(time(0));
   for (int i=0; i<n; i++) {
     key[i] = rand() % range;
@@ -99,6 +99,7 @@ int main() {
   cudaFree(d_blockCounts);
 
   printf("\n Sorted array: ");
+  
   for (int i=0; i<n; i++) {
     printf("%d ",key[i]);
   }
