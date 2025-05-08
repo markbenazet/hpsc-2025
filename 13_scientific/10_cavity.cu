@@ -5,32 +5,32 @@
 #include <cuda_runtime.h>
 
 using namespace std;
-typedef vector<vector<float>> matrix;
+typedef vector<vector<double>> matrix;
 
-__global__ void computeBKernel(float* u, float* v, float* b, int nx, int ny, 
-                              float dx, float dy, float dt, float rho) {
+__global__ void computeBKernel(double* u, double* v, double* b, int nx, int ny, 
+                              double dx, double dy, double dt, double rho) {
 
     int i = blockIdx.x * blockDim.x + threadIdx.x + 1;
     int j = blockIdx.y * blockDim.y + threadIdx.y + 1;
 
     if (i < nx - 1 && j < ny - 1) {
-        float du_dx = (u[j*nx + i+1] - u[j*nx + i-1]) / (2.0f * dx);
-        float dv_dy = (v[(j+1)*nx + i] - v[(j-1)*nx + i]) / (2.0f * dy);
+        double du_dx = (u[j*nx + i+1] - u[j*nx + i-1]) / (2.0f * dx);
+        double dv_dy = (v[(j+1)*nx + i] - v[(j-1)*nx + i]) / (2.0f * dy);
 
-        float du_dy = (u[(j+1)*nx + i] - u[(j-1)*nx + i]) / (2.0f * dy);
-        float dv_dx = (v[j*nx + i+1] - v[j*nx + i-1]) / (2.0f * dx);
+        double du_dy = (u[(j+1)*nx + i] - u[(j-1)*nx + i]) / (2.0f * dy);
+        double dv_dx = (v[j*nx + i+1] - v[j*nx + i-1]) / (2.0f * dx);
 
-        float div_term = (du_dx + dv_dy) / dt;
-        float squared_term = du_dy*du_dy + dv_dx*dv_dx;
-        float cross_term = 2.0f * du_dy * dv_dx;
+        double div_term = (du_dx + dv_dy) / dt;
+        double squared_term = du_dy*du_dy + dv_dx*dv_dx;
+        double cross_term = 2.0f * du_dy * dv_dx;
 
         b[j*nx + i] = rho * (div_term - squared_term - cross_term);
 
     }
 }
 
-__global__ void pressureIterationKernel(float* p, float* pn, float* b, int nx, int ny, 
-                                       float dx, float dy) {
+__global__ void pressureIterationKernel(double* p, double* pn, double* b, int nx, int ny, 
+                                       double dx, double dy) {
     int i = blockIdx.x * blockDim.x + threadIdx.x + 1;
     int j = blockIdx.y * blockDim.y + threadIdx.y + 1;
 
@@ -41,17 +41,17 @@ __global__ void pressureIterationKernel(float* p, float* pn, float* b, int nx, i
     __syncthreads();
 
     if (i > 0 && j > 0 && i < nx - 1 && j < ny - 1) {
-        float pressure_x_term = dy*dy * (pn[j * nx + i + 1] + pn[j * nx + i - 1]);
-        float pressure_y_term = dx*dx * (pn[(j + 1) * nx + i] + pn[(j - 1) * nx + i]);
-        float denominator = 2.0 * (dx*dx + dy*dy);
-        float source_term = b[j * nx + i] * dx*dx * dy*dy;
+        double pressure_x_term = dy*dy * (pn[j * nx + i + 1] + pn[j * nx + i - 1]);
+        double pressure_y_term = dx*dx * (pn[(j + 1) * nx + i] + pn[(j - 1) * nx + i]);
+        double denominator = 2.0 * (dx*dx + dy*dy);
+        double source_term = b[j * nx + i] * dx*dx * dy*dy;
 
         p[j * nx + i] = (pressure_x_term + pressure_y_term - source_term) / denominator;
     }
     __syncthreads();
 }
 
-__global__ void pressureBoundaryKernel(float* p, int nx, int ny) {
+__global__ void pressureBoundaryKernel(double* p, int nx, int ny) {
     
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     int j = blockIdx.y * blockDim.y + threadIdx.y;
@@ -69,8 +69,8 @@ __global__ void pressureBoundaryKernel(float* p, int nx, int ny) {
     __syncthreads();
 }
 
-__global__ void velocityKernel(float* u, float* v, float* un, float* vn, float* p,
-                              int nx, int ny, float dx, float dy, float dt, float rho, float nu) {
+__global__ void velocityKernel(double* u, double* v, double* un, double* vn, double* p,
+                              int nx, int ny, double dx, double dy, double dt, double rho, double nu) {
     int i = blockIdx.x * blockDim.x + threadIdx.x + 1;
     int j = blockIdx.y * blockDim.y + threadIdx.y + 1;
     
@@ -81,28 +81,28 @@ __global__ void velocityKernel(float* u, float* v, float* un, float* vn, float* 
     __syncthreads();
 
     if (i > 0 && j > 0 && i < nx - 1 && j < ny - 1) {
-        float u_prev = un[j * nx + i];    
-        float u_conv_x = un[j * nx + i] * dt / dx * (un[j * nx + i] - un[j * nx + i - 1]);
-        float u_conv_y = vn[j * nx + i] * dt / dy * (un[j * nx + i] - un[(j - 1) * nx + i]);
-        float u_pressure = dt / (2 * rho * dx) * (p[j * nx + i + 1] - p[j * nx + i - 1]);
-        float u_diff_x = nu * dt / (dx * dx) * (un[j * nx + i + 1] - 2 * un[j * nx + i] + un[j * nx + i - 1]);
-        float u_diff_y = nu * dt / (dy * dy) * (un[(j + 1) * nx + i] - 2 * un[j * nx + i] + un[(j - 1) * nx + i]);
+        double u_prev = un[j * nx + i];    
+        double u_conv_x = un[j * nx + i] * dt / dx * (un[j * nx + i] - un[j * nx + i - 1]);
+        double u_conv_y = vn[j * nx + i] * dt / dy * (un[j * nx + i] - un[(j - 1) * nx + i]);
+        double u_pressure = dt / (2 * rho * dx) * (p[j * nx + i + 1] - p[j * nx + i - 1]);
+        double u_diff_x = nu * dt / (dx * dx) * (un[j * nx + i + 1] - 2 * un[j * nx + i] + un[j * nx + i - 1]);
+        double u_diff_y = nu * dt / (dy * dy) * (un[(j + 1) * nx + i] - 2 * un[j * nx + i] + un[(j - 1) * nx + i]);
         
         u[j * nx + i] = u_prev - u_conv_x - u_conv_y - u_pressure + u_diff_x + u_diff_y;
 
-        float v_prev = vn[j * nx + i];
-        float v_conv_x = un[j * nx + i] * dt / dx * (vn[j * nx + i] - vn[j * nx + i - 1]);
-        float v_conv_y = vn[j * nx + i] * dt / dy * (vn[j * nx + i] - vn[(j - 1) * nx + i]);
-        float v_pressure = dt / (2 * rho * dy) * (p[(j + 1) * nx + i] - p[(j - 1) * nx + i]);
-        float v_diff_x = nu * dt / (dx * dx) * (vn[j * nx + i + 1] - 2 * vn[j * nx + i] + vn[j * nx + i - 1]);
-        float v_diff_y = nu * dt / (dy * dy) * (vn[(j + 1) * nx + i] - 2 * vn[j * nx + i] + vn[(j - 1) * nx + i]);
+        double v_prev = vn[j * nx + i];
+        double v_conv_x = un[j * nx + i] * dt / dx * (vn[j * nx + i] - vn[j * nx + i - 1]);
+        double v_conv_y = vn[j * nx + i] * dt / dy * (vn[j * nx + i] - vn[(j - 1) * nx + i]);
+        double v_pressure = dt / (2 * rho * dy) * (p[(j + 1) * nx + i] - p[(j - 1) * nx + i]);
+        double v_diff_x = nu * dt / (dx * dx) * (vn[j * nx + i + 1] - 2 * vn[j * nx + i] + vn[j * nx + i - 1]);
+        double v_diff_y = nu * dt / (dy * dy) * (vn[(j + 1) * nx + i] - 2 * vn[j * nx + i] + vn[(j - 1) * nx + i]);
 
         v[j * nx + i] = v_prev - v_conv_x - v_conv_y - v_pressure + v_diff_x + v_diff_y;
     }
     __syncthreads();
 }
 
-__global__ void velocityBoundaryKernel(float* u, float* v, int nx, int ny) {
+__global__ void velocityBoundaryKernel(double* u, double* v, int nx, int ny) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (idx < ny) {
@@ -130,8 +130,8 @@ void check_cuda_error(cudaError_t result, const char* func, const char* file, in
     }
 }
 
-void copyMatrixToDevice(const matrix& host_matrix, float* device_array, int nx, int ny) {
-    float* temp_data = new float[nx * ny];
+void copyMatrixToDevice(const matrix& host_matrix, double* device_array, int nx, int ny) {
+    double* temp_data = new double[nx * ny];
     
     for (int j = 0; j < ny; j++) {
         for (int i = 0; i < nx; i++) {
@@ -139,16 +139,16 @@ void copyMatrixToDevice(const matrix& host_matrix, float* device_array, int nx, 
         }
     }
     
-    CHECK_CUDA_ERROR(cudaMemcpy(device_array, temp_data, nx * ny * sizeof(float), 
+    CHECK_CUDA_ERROR(cudaMemcpy(device_array, temp_data, nx * ny * sizeof(double), 
                                cudaMemcpyHostToDevice));
     
     delete[] temp_data;
 }
 
-void copyDeviceToMatrix(float* device_array, matrix& host_matrix, int nx, int ny) {
-    float* temp_data = new float[nx * ny];
+void copyDeviceToMatrix(double* device_array, matrix& host_matrix, int nx, int ny) {
+    double* temp_data = new double[nx * ny];
     
-    CHECK_CUDA_ERROR(cudaMemcpy(temp_data, device_array, nx * ny * sizeof(float), 
+    CHECK_CUDA_ERROR(cudaMemcpy(temp_data, device_array, nx * ny * sizeof(double), 
                                cudaMemcpyDeviceToHost));
     
     for (int j = 0; j < ny; j++) {
@@ -165,22 +165,22 @@ int main() {
     int ny = 41;
     int nt = 500;
     int nit = 50;
-    float dx = 2.0f / (nx - 1);
-    float dy = 2.0f / (ny - 1);
-    float dt = 0.01f;
-    float rho = 1.0f;
-    float nu = 0.02f;
+    double dx = 2.0f / (nx - 1);
+    double dy = 2.0f / (ny - 1);
+    double dt = 0.01f;
+    double rho = 1.0f;
+    double nu = 0.02f;
     
-    matrix u(ny, vector<float>(nx, 0.0f));
-    matrix v(ny, vector<float>(nx, 0.0f));
-    matrix p(ny, vector<float>(nx, 0.0f));
-    matrix b(ny, vector<float>(nx, 0.0f));
-    matrix un(ny, vector<float>(nx, 0.0f));
-    matrix vn(ny, vector<float>(nx, 0.0f));
-    matrix pn(ny, vector<float>(nx, 0.0f));
+    matrix u(ny, vector<double>(nx, 0.0f));
+    matrix v(ny, vector<double>(nx, 0.0f));
+    matrix p(ny, vector<double>(nx, 0.0f));
+    matrix b(ny, vector<double>(nx, 0.0f));
+    matrix un(ny, vector<double>(nx, 0.0f));
+    matrix vn(ny, vector<double>(nx, 0.0f));
+    matrix pn(ny, vector<double>(nx, 0.0f));
     
-    float *d_u, *d_v, *d_p, *d_b, *d_un, *d_vn, *d_pn;
-    size_t size = nx * ny * sizeof(float);
+    double *d_u, *d_v, *d_p, *d_b, *d_un, *d_vn, *d_pn;
+    size_t size = nx * ny * sizeof(double);
 
     CHECK_CUDA_ERROR(cudaMalloc((void**)&d_u, size));
     CHECK_CUDA_ERROR(cudaMalloc((void**)&d_v, size));
