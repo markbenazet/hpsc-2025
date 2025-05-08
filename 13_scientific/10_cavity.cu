@@ -50,7 +50,6 @@ __global__ void pressureIterationKernel(double* p, double* pn, double* b, int nx
 
         p[j * nx + i] = (pressure_x_term + pressure_y_term - source_term) / denominator;
     }
-    __syncthreads();
 }
 
 __global__ void pressureBoundaryKernel(double* p, int nx, int ny) {
@@ -58,17 +57,19 @@ __global__ void pressureBoundaryKernel(double* p, int nx, int ny) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     int j = blockIdx.y * blockDim.y + threadIdx.y;
 
-    if (j < ny) {
+    if (j < ny && i == 0) {
         p[j * nx] = p[j * nx + 1];
+    }
+    if (j < ny && i == nx - 1) {
         p[j * nx + nx - 1] = p[j * nx + nx - 2];
     }
-    __syncthreads();
 
-    if (i < nx) {
+    if (i < nx && j == 0) {
         p[i] = p[nx + i];
+    }
+    if (i < nx && j == ny - 1) {
         p[(ny - 1) * nx + i] = 0;
     }
-    __syncthreads();
 }
 
 __global__ void velocityKernel(double* u, double* v, double* un, double* vn, double* p,
@@ -83,44 +84,40 @@ __global__ void velocityKernel(double* u, double* v, double* un, double* vn, dou
     __syncthreads();
 
     if (i > 0 && j > 0 && i < nx - 1 && j < ny - 1) {
-        double u_prev = un[j * nx + i];    
-        double u_conv_x = un[j * nx + i] * dt / dx * (un[j * nx + i] - un[j * nx + i - 1]);
-        double u_conv_y = un[j * nx + i] * dt / dy * (un[j * nx + i] - un[(j - 1) * nx + i]);
-        double u_pressure = dt / (2 * rho * dx) * (p[j * nx + i + 1] - p[j * nx + i - 1]);
-        double u_diff_x = nu * dt / (dx * dx) * (un[j * nx + i + 1] - 2 * un[j * nx + i] + un[j * nx + i - 1]);
-        double u_diff_y = nu * dt / (dy * dy) * (un[(j + 1) * nx + i] - 2 * un[j * nx + i] + un[(j - 1) * nx + i]);
-        
-        u[j * nx + i] = u_prev - u_conv_x - u_conv_y - u_pressure + u_diff_x + u_diff_y;
+        u[j * nx + i] = un[j * nx + i] - 
+                        un[j * nx + i] * dt / dx * (un[j * nx + i] - un[j * nx + i - 1]) -
+                        un[j * nx + i] * dt / dy * (un[j * nx + i] - un[(j - 1) * nx + i]) -
+                        dt / (2 * rho * dx) * (p[j * nx + i + 1] - p[j * nx + i - 1]) +
+                        nu * dt / (dx * dx) * (un[j * nx + i + 1] - 2 * un[j * nx + i] + un[j * nx + i - 1]) +
+                        nu * dt / (dy * dy) * (un[(j + 1) * nx + i] - 2 * un[j * nx + i] + un[(j - 1) * nx + i]);
 
-        double v_prev = vn[j * nx + i];
-        double v_conv_x = vn[j * nx + i] * dt / dx * (vn[j * nx + i] - vn[j * nx + i - 1]);
-        double v_conv_y = vn[j * nx + i] * dt / dy * (vn[j * nx + i] - vn[(j - 1) * nx + i]);
-        double v_pressure = dt / (2 * rho * dx) * (p[(j + 1) * nx + i] - p[(j - 1) * nx + i]);
-        double v_diff_x = nu * dt / (dx * dx) * (vn[j * nx + i + 1] - 2 * vn[j * nx + i] + vn[j * nx + i - 1]);
-        double v_diff_y = nu * dt / (dy * dy) * (vn[(j + 1) * nx + i] - 2 * vn[j * nx + i] + vn[(j - 1) * nx + i]);
-
-        v[j * nx + i] = v_prev - v_conv_x - v_conv_y - v_pressure + v_diff_x + v_diff_y;
+        v[j * nx + i] = vn[j * nx + i] - 
+                        vn[j * nx + i] * dt / dx * (vn[j * nx + i] - vn[j * nx + i - 1]) -
+                        vn[j * nx + i] * dt / dy * (vn[j * nx + i] - vn[(j - 1) * nx + i]) -
+                        dt / (2 * rho * dy) * (p[(j + 1) * nx + i] - p[(j - 1) * nx + i]) +
+                        nu * dt / (dx * dx) * (vn[j * nx + i + 1] - 2 * vn[j * nx + i] + vn[j * nx + i - 1]) +
+                        nu * dt / (dy * dy) * (vn[(j + 1) * nx + i] - 2 * vn[j * nx + i] + vn[(j - 1) * nx + i]);
     }
-    __syncthreads();
 }
 
 __global__ void velocityBoundaryKernel(double* u, double* v, int nx, int ny) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     int j = blockIdx.y * blockDim.y + threadIdx.y;
-    if (i < nx && j < ny) {
-        u[j * nx] = 0;
-        u[j * nx + nx - 1] = 0;
-        v[j * nx] = 0;
-        v[j * nx + nx - 1] = 0;
+    
+    if (j < ny && (i == 0 || i == nx - 1)) {
+        u[j * nx + i] = 0;
+        v[j * nx + i] = 0;
     }
-    __syncthreads();
-    if (i < nx && j < ny) {
+    
+    if (i < nx && j == 0) {
         u[i] = 0;
-        u[(ny - 1) * nx + i] = 1;
         v[i] = 0;
+    }
+    
+    if (i < nx && j == ny - 1) {
+        u[(ny - 1) * nx + i] = 1; 
         v[(ny - 1) * nx + i] = 0;
-      }
-    __syncthreads();
+    }
 }
 
 #define CHECK_CUDA_ERROR(val) check_cuda_error((val), #val, __FILE__, __LINE__)
@@ -173,13 +170,10 @@ int main() {
     double rho = 1.0f;
     double nu = 0.02f;
     
-    matrix u(ny,vector<double>(nx));
-    matrix v(ny,vector<double>(nx));
-    matrix p(ny,vector<double>(nx));
-    matrix b(ny,vector<double>(nx));
-    matrix un(ny,vector<double>(nx));
-    matrix vn(ny,vector<double>(nx));
-    matrix pn(ny,vector<double>(nx));
+    matrix u(ny, vector<double>(nx, 0.0));
+    matrix v(ny, vector<double>(nx, 0.0));
+    matrix p(ny, vector<double>(nx, 0.0));
+    matrix b(ny, vector<double>(nx, 0.0));
     
     double *d_u, *d_v, *d_p, *d_b, *d_un, *d_vn, *d_pn;
     size_t size = nx * ny * sizeof(double);
@@ -200,48 +194,42 @@ int main() {
     CHECK_CUDA_ERROR(cudaMemset(d_vn, 0, size));
     CHECK_CUDA_ERROR(cudaMemset(d_pn, 0, size));
 
-    copyMatrixToDevice(u, d_u, nx, ny);
-    copyMatrixToDevice(v, d_v, nx, ny);
-    copyMatrixToDevice(p, d_p, nx, ny);
-
     dim3 block(16, 16);
     dim3 grid((nx + block.x - 1) / block.x, (ny + block.y - 1) / block.y);
-
-    int maxBoundarySize = max(nx, ny);
-    dim3 boundaryBlockSize(256);
-    dim3 boundaryGridSize((maxBoundarySize + boundaryBlockSize.x - 1) / boundaryBlockSize.x);
 
     ofstream ufile("u.dat");
     ofstream vfile("v.dat");
     ofstream pfile("p.dat");
     
     for (int n = 0; n < nt; n++) {
-        copyMatrixToDevice(u, d_u, nx, ny);
-        copyMatrixToDevice(v, d_v, nx, ny);
-        copyMatrixToDevice(p, d_p, nx, ny);
 
         printf("Computing B matrix...\n");
         computeBKernel<<<grid, block>>>(d_u, d_v, d_b, nx, ny, dx, dy, dt, rho);
         CHECK_CUDA_ERROR(cudaGetLastError());
+        CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
         
         for (int it = 0; it < nit; it++) {
             printf("Pressure iteration %d...\n", it);
             pressureIterationKernel<<<grid, block>>>(d_p, d_pn, d_b, nx, ny, dx, dy);
             CHECK_CUDA_ERROR(cudaGetLastError());
+            CHECK_CUDA_ERROR(cudaDeviceSynchronize());
             
             printf("Pressure boundary conditions...\n");
             pressureBoundaryKernel<<<grid, block>>>(d_p, nx, ny);
             CHECK_CUDA_ERROR(cudaGetLastError());
+            CHECK_CUDA_ERROR(cudaDeviceSynchronize());
         }
         
         printf("Updating velocity...\n");
         velocityKernel<<<grid, block>>>(d_u, d_v, d_un, d_vn, d_p, nx, ny, dx, dy, dt, rho, nu);
         CHECK_CUDA_ERROR(cudaGetLastError());
+        CHECK_CUDA_ERROR(cudaDeviceSynchronize());
         
         printf("Applying velocity boundary conditions...\n");
         velocityBoundaryKernel<<<grid, block>>>(d_u, d_v, nx, ny);
         CHECK_CUDA_ERROR(cudaGetLastError());
+        CHECK_CUDA_ERROR(cudaDeviceSynchronize());
         
         printf("Copying results back to host...\n");
         if (n % 10 == 0) {
