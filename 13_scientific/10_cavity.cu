@@ -5,13 +5,13 @@
 #include <cuda_runtime.h>
 
 using namespace std;
-typedef vector<vector<double>> matrix;
+typedef vector<vector<float>> matrix;
 
 __global__ void computeBKernel(double* u, double* v, double* b, int nx, int ny, 
                               double dx, double dy, double dt, double rho) {
 
-    int i = blockIdx.x * blockDim.x + threadIdx.x + 1;
-    int j = blockIdx.y * blockDim.y + threadIdx.y + 1;
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    int j = blockIdx.y * blockDim.y + threadIdx.y;
 
     if (i < nx - 1 && j < ny - 1) {
         double du_dx = (u[j*nx + i+1] - u[j*nx + i-1]) / (2.0f * dx);
@@ -20,19 +20,20 @@ __global__ void computeBKernel(double* u, double* v, double* b, int nx, int ny,
         double du_dy = (u[(j+1)*nx + i] - u[(j-1)*nx + i]) / (2.0f * dy);
         double dv_dx = (v[j*nx + i+1] - v[j*nx + i-1]) / (2.0f * dx);
 
-        double div_term = (du_dx + dv_dy) / dt;
-        double squared_term = du_dy*du_dy + dv_dx*dv_dx;
-        double cross_term = 2.0f * du_dy * dv_dx;
+        double div_term = (du_dx + dv_dy) / dt;       // Divergence term (1/dt * (du/dx + dv/dy))
+        double squared_u_term = du_dx * du_dx;        // (du/dx)²
+        double cross_term = 2 * du_dy * dv_dx;        // 2 * du/dy * dv/dx
+        double squared_v_term = dv_dy * dv_dy; 
 
-        b[j*nx + i] = rho * (div_term - squared_term - cross_term);
+        b[j*nx + i] = rho * (div_term - squared_u_term - cross_term - squared_v_term);
 
     }
 }
 
 __global__ void pressureIterationKernel(double* p, double* pn, double* b, int nx, int ny, 
                                        double dx, double dy) {
-    int i = blockIdx.x * blockDim.x + threadIdx.x + 1;
-    int j = blockIdx.y * blockDim.y + threadIdx.y + 1;
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    int j = blockIdx.y * blockDim.y + threadIdx.y;
 
     if (i < nx && j < ny) {
         pn[j * nx + i] = p[j * nx + i];
@@ -71,8 +72,8 @@ __global__ void pressureBoundaryKernel(double* p, int nx, int ny) {
 
 __global__ void velocityKernel(double* u, double* v, double* un, double* vn, double* p,
                               int nx, int ny, double dx, double dy, double dt, double rho, double nu) {
-    int i = blockIdx.x * blockDim.x + threadIdx.x + 1;
-    int j = blockIdx.y * blockDim.y + threadIdx.y + 1;
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    int j = blockIdx.y * blockDim.y + threadIdx.y;
     
     if (i < nx && j < ny) {
         un[j * nx + i] = u[j * nx + i];
@@ -103,21 +104,21 @@ __global__ void velocityKernel(double* u, double* v, double* un, double* vn, dou
 }
 
 __global__ void velocityBoundaryKernel(double* u, double* v, int nx, int ny) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if (idx < ny) {
-        u[idx * nx] = 0;
-        u[idx * nx + nx - 1] = 0;
-        v[idx * nx] = 0;
-        v[idx * nx + nx - 1] = 0;
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    int j = blockIdx.y * blockDim.y + threadIdx.y;
+    if (i < nx && j < ny) {
+        u[j * nx] = 0;
+        u[j * nx + nx - 1] = 0;
+        v[j * nx] = 0;
+        v[j * nx + nx - 1] = 0;
     }
-
-    if (idx < nx) {
-        u[idx] = 0;
-        u[(ny - 1) * nx + idx] = 1;
-        v[idx] = 0;
-        v[(ny - 1) * nx + idx] = 0;
-    }
+    __syncthreads();
+    if (i < nx && j < ny) {
+        u[i] = 0;
+        u[(ny - 1) * nx + i] = 1;
+        v[i] = 0;
+        v[(ny - 1) * nx + i] = 0;
+      }
     __syncthreads();
 }
 
@@ -171,13 +172,13 @@ int main() {
     double rho = 1.0f;
     double nu = 0.02f;
     
-    matrix u(ny, vector<double>(nx, 0.0f));
-    matrix v(ny, vector<double>(nx, 0.0f));
-    matrix p(ny, vector<double>(nx, 0.0f));
-    matrix b(ny, vector<double>(nx, 0.0f));
-    matrix un(ny, vector<double>(nx, 0.0f));
-    matrix vn(ny, vector<double>(nx, 0.0f));
-    matrix pn(ny, vector<double>(nx, 0.0f));
+    matrix u(ny,vector<float>(nx));
+    matrix v(ny,vector<float>(nx));
+    matrix p(ny,vector<float>(nx));
+    matrix b(ny,vector<float>(nx));
+    matrix un(ny,vector<float>(nx));
+    matrix vn(ny,vector<float>(nx));
+    matrix pn(ny,vector<float>(nx));
     
     double *d_u, *d_v, *d_p, *d_b, *d_un, *d_vn, *d_pn;
     size_t size = nx * ny * sizeof(double);
