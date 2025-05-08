@@ -52,16 +52,19 @@ __global__ void pressureIterationKernel(float* p, float* pn, float* b, int nx, i
 }
 
 __global__ void pressureBoundaryKernel(float* p, int nx, int ny) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    int j = blockIdx.y * blockDim.y + threadIdx.y;
 
-    if (idx < ny) {
-        p[idx * nx] = p[idx * nx + 1];
-        p[idx * nx + nx - 1] = p[idx * nx + nx - 2];
+    if (j < ny) {
+        p[j * nx] = p[j * nx + 1];
+        p[j * nx + nx - 1] = p[j * nx + nx - 2];
     }
+    __syncthreads();
 
-    if (idx < nx) {
-        p[idx] = p[nx + idx];
-        p[(ny - 1) * nx + idx] = p[(ny - 2) * nx + idx];
+    if (i < nx) {
+        p[i] = p[nx + i];
+        p[(ny - 1) * nx + i] = 0;
     }
     __syncthreads();
 }
@@ -175,10 +178,6 @@ int main() {
     matrix un(ny, vector<float>(nx, 0.0f));
     matrix vn(ny, vector<float>(nx, 0.0f));
     matrix pn(ny, vector<float>(nx, 0.0f));
-
-    for (int i = 0; i < nx; ++i) {
-        u[ny - 1][i] = 1.0f;
-    }
     
     float *d_u, *d_v, *d_p, *d_b, *d_un, *d_vn, *d_pn;
     size_t size = nx * ny * sizeof(float);
