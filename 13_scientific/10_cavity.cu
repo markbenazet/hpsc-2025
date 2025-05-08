@@ -14,16 +14,18 @@ __global__ void computeBKernel(float* u, float* v, float* b, int nx, int ny,
     int j = blockIdx.y * blockDim.y + threadIdx.y + 1;
 
     if (i < nx - 1 && j < ny - 1) {
-        float du_dx = (u[j * nx + i + 1] - u[j * nx + i - 1]) / (2.0 * dx);
-        float dv_dy = (v[(j + 1) * nx + i] - v[(j - 1) * nx + i]) / (2.0 * dy);
-        float du_dy = (u[j * nx + i + 1] - u[j * nx + i - 1]) / (2.0 * dy);
-        float dv_dx = (v[(j + 1) * nx + i] - v[(j - 1) * nx + i]) / (2.0 * dx);
+        float du_dx = (u[j*nx + i+1] - u[j*nx + i-1]) / (2.0f * dx);
+        float dv_dy = (v[(j+1)*nx + i] - v[(j-1)*nx + i]) / (2.0f * dy);
 
-        float div_term = (du_dx + dv_dy)/dt;
-        float squared_term = du_dy * du_dy + dv_dx * dv_dx;
-        float cross_term = 2.0 * du_dy * dv_dx;
+        float du_dy = (u[(j+1)*nx + i] - u[(j-1)*nx + i]) / (2.0f * dy);
+        float dv_dx = (v[j*nx + i+1] - v[j*nx + i-1]) / (2.0f * dx);
 
-        b[j * nx + i] = rho * (div_term - squared_term - cross_term);
+        float div_term = (du_dx + dv_dy) / dt;
+        float squared_term = du_dy*du_dy + dv_dx*dv_dx;
+        float cross_term = 2.0f * du_dy * dv_dx;
+
+        b[j*nx + i] = rho * (div_term - squared_term - cross_term);
+
     }
 }
 
@@ -173,6 +175,10 @@ int main() {
     matrix un(ny, vector<float>(nx, 0.0f));
     matrix vn(ny, vector<float>(nx, 0.0f));
     matrix pn(ny, vector<float>(nx, 0.0f));
+
+    for (int i = 0; i < nx; ++i) {
+        u[ny - 1][i] = 1.0f;
+    }
     
     float *d_u, *d_v, *d_p, *d_b, *d_un, *d_vn, *d_pn;
     size_t size = nx * ny * sizeof(float);
@@ -192,6 +198,10 @@ int main() {
     CHECK_CUDA_ERROR(cudaMemset(d_un, 0, size));
     CHECK_CUDA_ERROR(cudaMemset(d_vn, 0, size));
     CHECK_CUDA_ERROR(cudaMemset(d_pn, 0, size));
+
+    copyMatrixToDevice(u, d_u, nx, ny);
+    copyMatrixToDevice(v, d_v, nx, ny);
+    copyMatrixToDevice(p, d_p, nx, ny);
 
     dim3 block(16, 16);
     dim3 grid((nx + block.x - 1) / block.x, (ny + block.y - 1) / block.y);
