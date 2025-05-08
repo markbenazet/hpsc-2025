@@ -9,6 +9,7 @@ typedef vector<vector<float>> matrix;
 
 __global__ void computeBKernel(float* u, float* v, float* b, int nx, int ny, 
                               float dx, float dy, float dt, float rho) {
+
     int i = blockIdx.x * blockDim.x + threadIdx.x + 1;
     int j = blockIdx.y * blockDim.y + threadIdx.y + 1;
 
@@ -20,11 +21,10 @@ __global__ void computeBKernel(float* u, float* v, float* b, int nx, int ny,
 
         float div_term = (du_dx + dv_dy)/dt;
         float squared_term = du_dy * du_dy + dv_dx * dv_dx;
-        float cross_term = 2 * du_dy * dv_dx;
+        float cross_term = 2.0 * du_dy * dv_dx;
 
         b[j * nx + i] = rho * (div_term - squared_term - cross_term);
     }
-    __syncthreads();
 }
 
 __global__ void pressureIterationKernel(float* p, float* pn, float* b, int nx, int ny, 
@@ -109,7 +109,7 @@ __global__ void velocityBoundaryKernel(float* u, float* v, int nx, int ny) {
 
     if (idx < nx) {
         u[idx] = 0;
-        u[(ny - 1) * nx + idx] = 0;
+        u[(ny - 1) * nx + idx] = 1;
         v[idx] = 0;
         v[(ny - 1) * nx + idx] = 0;
     }
@@ -209,35 +209,35 @@ int main() {
         copyMatrixToDevice(v, d_v, nx, ny);
         copyMatrixToDevice(p, d_p, nx, ny);
 
-        // Step 1: Compute the b array for pressure Poisson equation
+        printf("Computing B matrix...\n");
         computeBKernel<<<grid, block>>>(d_u, d_v, d_b, nx, ny, dx, dy, dt, rho);
         CHECK_CUDA_ERROR(cudaGetLastError());
+
         
-        // Step 2: Solve pressure Poisson equation iteratively
         for (int it = 0; it < nit; it++) {
+            printf("Pressure iteration %d...\n", it);
             pressureIterationKernel<<<grid, block>>>(d_p, d_pn, d_b, nx, ny, dx, dy);
             CHECK_CUDA_ERROR(cudaGetLastError());
             
-            // Apply pressure boundary conditions
+            printf("Pressure boundary conditions...\n");
             pressureBoundaryKernel<<<boundaryGridSize, boundaryBlockSize>>>(d_p, nx, ny);
             CHECK_CUDA_ERROR(cudaGetLastError());
         }
         
-        // Step 3: Update velocities based on pressure
+        printf("Updating velocity...\n");
         velocityKernel<<<grid, block>>>(d_u, d_v, d_un, d_vn, d_p, nx, ny, dx, dy, dt, rho, nu);
         CHECK_CUDA_ERROR(cudaGetLastError());
         
-        // Step 4: Apply velocity boundary conditions
+        printf("Applying velocity boundary conditions...\n");
         velocityBoundaryKernel<<<boundaryGridSize, boundaryBlockSize>>>(d_u, d_v, nx, ny);
         CHECK_CUDA_ERROR(cudaGetLastError());
         
+        printf("Copying results back to host...\n");
         if (n % 10 == 0) {
-            // Copy data from device to host
             copyDeviceToMatrix(d_u, u, nx, ny);
             copyDeviceToMatrix(d_v, v, nx, ny);
             copyDeviceToMatrix(d_p, p, nx, ny);
-            
-            // Write to files - each 2D grid as a single line
+        
             for (int j = 0; j < ny; j++) {
                 for (int i = 0; i < nx; i++) {
                     ufile << u[j][i] << " ";
