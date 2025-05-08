@@ -237,20 +237,27 @@ int main() {
             copyDeviceToMatrix(d_v, v, nx, ny);
             copyDeviceToMatrix(d_p, p, nx, ny);
             
-            // Write to files
+            // Write to files - each 2D grid as a single line
             for (int j = 0; j < ny; j++) {
                 for (int i = 0; i < nx; i++) {
                     ufile << u[j][i] << " ";
+                }
+            }
+            ufile << "\n";
+            
+            for (int j = 0; j < ny; j++) {
+                for (int i = 0; i < nx; i++) {
                     vfile << v[j][i] << " ";
+                }
+            }
+            vfile << "\n";
+            
+            for (int j = 0; j < ny; j++) {
+                for (int i = 0; i < nx; i++) {
                     pfile << p[j][i] << " ";
                 }
-                ufile << endl;
-                vfile << endl;
-                pfile << endl;
             }
-            ufile << endl;
-            vfile << endl;
-            pfile << endl;
+            pfile << "\n";
             
             printf("Time step %d completed\n", n);
         }
