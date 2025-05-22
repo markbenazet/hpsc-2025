@@ -210,28 +210,23 @@ int main() {
 
         
         for (int it = 0; it < nit; it++) {
-            printf("Pressure iteration %d...\n", it);
             pressureIterationKernel<<<grid, block>>>(d_p, d_pn, d_b, nx, ny, dx, dy);
             CHECK_CUDA_ERROR(cudaGetLastError());
             CHECK_CUDA_ERROR(cudaDeviceSynchronize());
             
-            printf("Pressure boundary conditions...\n");
             pressureBoundaryKernel<<<grid, block>>>(d_p, nx, ny);
             CHECK_CUDA_ERROR(cudaGetLastError());
             CHECK_CUDA_ERROR(cudaDeviceSynchronize());
         }
         
-        printf("Updating velocity...\n");
         velocityKernel<<<grid, block>>>(d_u, d_v, d_un, d_vn, d_p, nx, ny, dx, dy, dt, rho, nu);
         CHECK_CUDA_ERROR(cudaGetLastError());
         CHECK_CUDA_ERROR(cudaDeviceSynchronize());
         
-        printf("Applying velocity boundary conditions...\n");
         velocityBoundaryKernel<<<grid, block>>>(d_u, d_v, nx, ny);
         CHECK_CUDA_ERROR(cudaGetLastError());
         CHECK_CUDA_ERROR(cudaDeviceSynchronize());
         
-        printf("Copying results back to host...\n");
         if (n % 10 == 0) {
             copyDeviceToMatrix(d_u, u, nx, ny);
             copyDeviceToMatrix(d_v, v, nx, ny);
@@ -258,7 +253,6 @@ int main() {
             }
             pfile << "\n";
             
-            printf("Time step %d completed\n", n);
         }
     }
     
