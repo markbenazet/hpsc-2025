@@ -32,9 +32,9 @@ int main() {
       b[j][i] = 0;
     }
   }
-  ofstream ufile("u.dat");
-  ofstream vfile("v.dat");
-  ofstream pfile("p.dat");
+  ofstream ufile("u++.dat");
+  ofstream vfile("v++.dat");
+  ofstream pfile("p++.dat");
   for (int n=0; n<nt; n++) {
     for (int j=1; j<ny-1; j++) {
       for (int i=1; i<nx-1; i++) {

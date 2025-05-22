@@ -197,9 +197,9 @@ int main() {
     dim3 block(16, 16);
     dim3 grid((nx + block.x - 1) / block.x, (ny + block.y - 1) / block.y);
 
-    ofstream ufile("u.dat");
-    ofstream vfile("v.dat");
-    ofstream pfile("p.dat");
+    ofstream ufile("u_cu.dat");
+    ofstream vfile("v_cu.dat");
+    ofstream pfile("p_cu.dat");
     
     for (int n = 0; n < nt; n++) {
 
