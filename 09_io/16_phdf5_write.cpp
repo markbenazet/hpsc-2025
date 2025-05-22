@@ -16,12 +16,10 @@ int main (int argc, char** argv) {
   hsize_t N[2] = {NX, NY};
   hsize_t Nlocal[2] = {NX/2, NY/2};
   hsize_t offset[2] = {mpirank / dim[1], mpirank % dim[1]};
-  offset[0] *= Nlocal[0];
-  offset[1] *= Nlocal[1];
-  hsize_t count[2] = {1,1};
-  hsize_t stride[2] = {1,1};
+  hsize_t block[2] = {1,1};
+  hsize_t stride[2] = {2,2};
   vector<int> buffer(Nlocal[0]*Nlocal[1],mpirank);
-  hsize_t block[2] = {Nlocal[0], Nlocal[1]};
+  hsize_t count[2] = {Nlocal[0], Nlocal[1]};
   hid_t plist = H5Pcreate(H5P_FILE_ACCESS);
   H5Pset_fapl_mpio(plist, MPI_COMM_WORLD, MPI_INFO_NULL);
   hid_t file = H5Fcreate("data.h5", H5F_ACC_TRUNC, H5P_DEFAULT, plist);
