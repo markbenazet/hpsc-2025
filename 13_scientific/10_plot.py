@@ -6,7 +6,7 @@ NX = 41
 NY = 41
 
 def main():
-    # 0) DEBUG: where are we, and what’s in "./13_scientific/"?
+
     cwd = os.getcwd()
     print("Current working dir:", cwd)
     data_dir = "./"
@@ -17,12 +17,10 @@ def main():
     else:
         print(f"ERROR: {data_dir!r} is not a directory (or doesn’t exist)")
 
-    # 1) Prepare your grid
     x = np.linspace(0, 2, NX)
     y = np.linspace(0, 2, NY)
     X, Y = np.meshgrid(x, y)
 
-    # 2) Detect which files to use
     candidates = {
         "C++": ["u++.dat", "v++.dat", "p++.dat"],
         "CUDA": ["u_cu.dat", "v_cu.dat", "p_cu.dat"],
@@ -42,7 +40,6 @@ def main():
     print(f"→ Using device = {string_device}")
     print("→ Files:", ufile, vfile, pfile)
 
-    # 3) Read all timesteps into lists of lines
     with open(ufile, 'r') as f:
         uraw = f.readlines()
     with open(vfile, 'r') as f:
@@ -50,7 +47,6 @@ def main():
     with open(pfile, 'r') as f:
         praw = f.readlines()
 
-    # 4) Loop over timesteps and plot
     u = np.zeros((NY, NX))
     v = np.zeros((NY, NX))
     p = np.zeros((NY, NX))
@@ -58,12 +54,10 @@ def main():
     for n in range(len(uraw)):
         plt.clf()
 
-        # parse one line per variable
         u_flat = [float(val) for val in uraw[n].split()]
         v_flat = [float(val) for val in vraw[n].split()]
         p_flat = [float(val) for val in praw[n].split()]
 
-        # reshape into 2D arrays
         for j in range(NY):
             for i in range(NX):
                 idx = j * NX + i
@@ -71,12 +65,10 @@ def main():
                 v[j, i] = v_flat[idx]
                 p[j, i] = p_flat[idx]
 
-        # contour + quiver
         plt.contourf(X, Y, p, alpha=0.5, cmap=plt.cm.coolwarm)
         plt.quiver(X[::2, ::2], Y[::2, ::2],
                    u[::2, ::2], v[::2, ::2])
 
-        # insert the device name dynamically
         plt.title(f"{string_device}, n = {n}")
         plt.pause(0.01)
 
