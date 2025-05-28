@@ -64,7 +64,8 @@ int main() {
     printf("%d %g %g\n", i, fx[i], fy[i]);
   }
   printf("----------------------------------\n");
-  printf("Standard N-body simulation results:\n");
+  printf("Comparison of SIMD and standard results:\n");
+  bool results_match = true;
   for(int i=0; i<N; i++) {
     float fx_i = 0.0f, fy_i = 0.0f;
     for(int j=0; j<N; j++) {
@@ -80,7 +81,16 @@ int main() {
         }
       }
     }
-    printf("%d %g %g\n", i, fx_i, fy_i);
+    if(fabsf(fx[i] - fx_i) > 1e-6f || fabsf(fy[i] - fy_i) > 1e-6f) {
+      results_match = false;
+      break;
+    }
+  }
+  
+  if(results_match) {
+    printf("TRUE - SIMD and standard results match\n");
+  } else {
+    printf("FALSE - SIMD and standard results do not match\n");
   }
 
 
