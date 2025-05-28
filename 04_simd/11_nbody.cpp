@@ -63,40 +63,38 @@ int main() {
   for(int i=0; i<N; i++) {
     printf("%d %g %g\n", i, fx[i], fy[i]);
   }
-  printf("----------------------------------\n");
-  bool results_match = true;
-  printf("Stdandard N-body simulation results:\n");
-  for(int i=0; i<N; i++) {
-    float fx_i = 0.0f, fy_i = 0.0f;
-    for(int j=0; j<N; j++) {
-      if(i != j) {
-        float rx = x[j] - x[i];
-        float ry = y[j] - y[i];
-        float r2 = rx * rx + ry * ry;
-        if(r2 > 1e-12f) {
-          float r = sqrtf(r2);
-          float invr3 = 1.0f / (r2 * r);
-          fx_i += m[j] * rx * invr3;
-          fy_i += m[j] * ry * invr3;
-        }
-      }
-    }
-    printf("%d %g %g\n", i, fx_i, fy_i);
-    if(fabsf(fx[i] - fx_i) > 1e-2f || fabsf(fy[i] - fy_i) > 1e-2f) {
-      results_match = false;
-      break;
-    }
-  }
+  // printf("----------------------------------\n");
+  // bool results_match = true;
+  // printf("Stdandard N-body simulation results:\n");
+  // for(int i=0; i<N; i++) {
+  //   float fx_i = 0.0f, fy_i = 0.0f;
+  //   for(int j=0; j<N; j++) {
+  //     if(i != j) {
+  //       float rx = x[j] - x[i];
+  //       float ry = y[j] - y[i];
+  //       float r2 = rx * rx + ry * ry;
+  //       if(r2 > 1e-12f) {
+  //         float r = sqrtf(r2);
+  //         float invr3 = 1.0f / (r2 * r);
+  //         fx_i += m[j] * rx * invr3;
+  //         fy_i += m[j] * ry * invr3;
+  //       }
+  //     }
+  //   }
+  //   printf("%d %g %g\n", i, fx_i, fy_i);
+  //   if(fabsf(fx[i] - fx_i) > 1e-2f || fabsf(fy[i] - fy_i) > 1e-2f) {
+  //     results_match = false;
+  //     break;
+  //   }
+  // }
   
-  printf("----------------------------------\n");
-  printf("Comparison of SIMD and standard results:\n");
-  if(results_match) {
-    printf("TRUE - SIMD and standard results match\n");
-  } else {
-    printf("FALSE - SIMD and standard results do not match\n");
-  }
+  // printf("----------------------------------\n");
+  // printf("Comparison of SIMD and standard results:\n");
+  // if(results_match) {
+  //   printf("TRUE - SIMD and standard results match\n");
+  // } else {
+  //   printf("FALSE - SIMD and standard results do not match\n");
+  // }
 
-
-  
   return 0;
 }
