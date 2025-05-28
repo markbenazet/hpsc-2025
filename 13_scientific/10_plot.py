@@ -72,8 +72,8 @@ def main():
         plt.title(f"{string_device}, n = {n}")
         plt.pause(0.01)
 
+    plt.savefig(f"./Final Report/{string_device}_plot.png")
     plt.show()
-    plt.savefig(f"{string_device}_plot.png")
 
 if __name__ == "__main__":
     main()
