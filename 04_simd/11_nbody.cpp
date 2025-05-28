@@ -5,12 +5,13 @@
 
 int main() {
   const int N = 16;
+  srand48(1234);
   alignas(64) float x[N], y[N], m[N], fx[N], fy[N]; 
   
   for(int i=0; i<N; i++) {
     x[i] = (float)drand48();
     y[i] = (float)drand48();
-    m[i] = (float)drand48() + 0.1f;
+    m[i] = (float)drand48();
     fx[i] = fy[i] = 0.0f;
   }
 
@@ -40,6 +41,8 @@ int main() {
     __m512 inv_r3_vec = _mm512_mul_ps(_mm512_mul_ps(inv_r_vec, inv_r_vec), inv_r_vec);
 
     __m512 coef_vec = _mm512_mul_ps(m_vec, inv_r3_vec);
+    coef_vec = _mm512_mul_ps(coef_vec, _mm512_set1_ps(-1.0f));
+
 
     __m512 fx_components_vec = _mm512_mul_ps(rx_vec, coef_vec);
     __m512 fy_components_vec = _mm512_mul_ps(ry_vec, coef_vec);
