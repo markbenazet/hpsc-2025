@@ -57,9 +57,33 @@ int main() {
     fy[i] = _mm512_reduce_add_ps(fy_components_vec);
   }
 
+
+  printf("SIMD N-body simulation results:\n");
+  printf("----------------------------------\n");
   for(int i=0; i<N; i++) {
     printf("%d %g %g\n", i, fx[i], fy[i]);
   }
+  printf("----------------------------------\n");
+  printf("Standard N-body simulation results:\n");
+  for(int i=0; i<N; i++) {
+    float fx_i = 0.0f, fy_i = 0.0f;
+    for(int j=0; j<N; j++) {
+      if(i != j) {
+        float rx = x[j] - x[i];
+        float ry = y[j] - y[i];
+        float r2 = rx * rx + ry * ry;
+        if(r2 > 1e-12f) {
+          float r = sqrtf(r2);
+          float invr3 = 1.0f / (r2 * r);
+          fx_i += m[j] * rx * invr3;
+          fy_i += m[j] * ry * invr3;
+        }
+      }
+    }
+    printf("%d %g %g\n", i, fx_i, fy_i);
+  }
+
+
   
   return 0;
 }
