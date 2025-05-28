@@ -23,30 +23,14 @@ __global__ void countElements(int *input, int *counts, int n, int range) {
     }
 }
 
-__global__ void sortElements(int *input, int *output, int *counts, int n, int range) {
-    
-    extern __shared__ int prefixSum[];
-    
-    for (int i = threadIdx.x; i < range; i += blockDim.x) {
-        prefixSum[i] = counts[i];
-    }
-    __syncthreads();
-    
-    if (threadIdx.x == 0) {
-        int sum = 0;
-        for (int i = 0; i < range; i++) {
-            int count = prefixSum[i];
-            prefixSum[i] = sum;
-            sum += count;
-        }
-    }
-    __syncthreads();
-    
-    for (int i = threadIdx.x + blockIdx.x * blockDim.x; i < n; i += blockDim.x * gridDim.x) {
-        int value = input[i];
-        int pos = atomicAdd(&prefixSum[value], 1);
-        output[pos] = value;
-    }
+__global__ void sortElements(int *input, int *output, int *prefixSums, int n) {
+    int i = threadIdx.x + blockIdx.x * blockDim.x;
+    if (i >= n) return;
+
+    int value = input[i];
+    // Use atomicAdd on global prefixSums to get unique position
+    int pos = atomicAdd(&prefixSums[value], 1);
+    output[pos] = value;
 }
 
 int main() {
@@ -75,10 +59,19 @@ int main() {
     cudaMemcpy(d_input, key.data(), n * sizeof(int), cudaMemcpyHostToDevice);
     
     countElements<<<numBlocks, blockSize, range * sizeof(int)>>>(d_input, d_counts, n, range);
-      
     cudaDeviceSynchronize();
-    
-    sortElements<<<numBlocks, blockSize, range * sizeof(int)>>>(d_input, d_output, d_counts, n, range);
+    std::vector<int> h_counts(range);
+    cudaMemcpy(h_counts.data(), d_counts, range * sizeof(int), cudaMemcpyDeviceToHost);
+
+    int sum = 0;
+    for (int i = 0; i < range; i++) {
+        int temp = h_counts[i];
+        h_counts[i] = sum;
+        sum += temp;
+    }
+    cudaMemcpy(d_counts, h_counts.data(), range * sizeof(int), cudaMemcpyHostToDevice);
+      
+    sortElements<<<numBlocks, blockSize>>>(d_input, d_output, d_counts, n);
     
     cudaDeviceSynchronize();
     
